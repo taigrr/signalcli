@@ -134,13 +134,13 @@ func (c *Client) Call(ctx context.Context, method string, params interface{}) (j
 
 // SendParams contains parameters for sending a message.
 type SendParams struct {
-	Recipient  string   `json:"recipient,omitempty"`  // Single recipient (UUID or phone)
-	Recipients []string `json:"recipients,omitempty"` // Multiple recipients
-	GroupID    string   `json:"groupId,omitempty"`    // Group ID for group messages
-	Message    string   `json:"message"`
-	Attachment string   `json:"attachment,omitempty"` // Path to attachment file
-	Quote      *Quote   `json:"quote,omitempty"`      // Quote/reply
-	Mentions   []Mention `json:"mentions,omitempty"`  // @mentions
+	Recipient  string    `json:"recipient,omitempty"`  // Single recipient (UUID or phone)
+	Recipients []string  `json:"recipients,omitempty"` // Multiple recipients
+	GroupID    string    `json:"groupId,omitempty"`    // Group ID for group messages
+	Message    string    `json:"message"`
+	Attachment string    `json:"attachment,omitempty"` // Path to attachment file
+	Quote      *Quote    `json:"quote,omitempty"`      // Quote/reply
+	Mentions   []Mention `json:"mentions,omitempty"`   // @mentions
 }
 
 // Quote represents a quoted/replied message.
@@ -159,16 +159,16 @@ type Mention struct {
 
 // SendResult contains the result of sending a message.
 type SendResult struct {
-	Timestamp int64          `json:"timestamp"`
+	Timestamp int64             `json:"timestamp"`
 	Results   []RecipientResult `json:"results"`
 }
 
 // RecipientResult contains the result for a single recipient.
 type RecipientResult struct {
-	RecipientAddress Address `json:"recipientAddress"`
-	Type             string  `json:"type"` // "SUCCESS", "UNREGISTERED_FAILURE", etc.
-	NetworkFailure   bool    `json:"networkFailure,omitempty"`
-	UnregisteredFailure bool `json:"unregisteredFailure,omitempty"`
+	RecipientAddress    Address `json:"recipientAddress"`
+	Type                string  `json:"type"` // "SUCCESS", "UNREGISTERED_FAILURE", etc.
+	NetworkFailure      bool    `json:"networkFailure,omitempty"`
+	UnregisteredFailure bool    `json:"unregisteredFailure,omitempty"`
 }
 
 // Address represents a Signal address.
@@ -232,11 +232,11 @@ func (c *Client) Send(ctx context.Context, params SendParams) (*SendResult, erro
 
 // ReactParams contains parameters for sending a reaction.
 type ReactParams struct {
-	Recipient       string `json:"recipient"`       // Recipient UUID or phone
-	Emoji           string `json:"emoji"`           // Emoji to react with
-	TargetAuthor    string `json:"targetAuthor"`    // Author of target message
-	TargetTimestamp int64  `json:"targetTimestamp"` // Timestamp of target message
-	Remove          bool   `json:"remove,omitempty"` // Remove reaction instead of add
+	Recipient       string `json:"recipient"`         // Recipient UUID or phone
+	Emoji           string `json:"emoji"`             // Emoji to react with
+	TargetAuthor    string `json:"targetAuthor"`      // Author of target message
+	TargetTimestamp int64  `json:"targetTimestamp"`   // Timestamp of target message
+	Remove          bool   `json:"remove,omitempty"`  // Remove reaction instead of add
 	GroupID         string `json:"groupId,omitempty"` // For group messages
 }
 
@@ -322,8 +322,8 @@ func (c *Client) GetProfile(ctx context.Context, recipient string) (*Profile, er
 
 // Profile represents a Signal user profile.
 type Profile struct {
-	Address    Address `json:"address"`
-	Name       string  `json:"name"`
-	IsBlocked  bool    `json:"isBlocked"`
-	ExpiresIn  int     `json:"messageExpirationTime"`
+	Address   Address `json:"address"`
+	Name      string  `json:"name"`
+	IsBlocked bool    `json:"isBlocked"`
+	ExpiresIn int     `json:"messageExpirationTime"`
 }

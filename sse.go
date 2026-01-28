@@ -29,50 +29,50 @@ func NewListener(client *Client) *Listener {
 
 // Envelope is the top-level message envelope from signal-cli.
 type Envelope struct {
-	Source            string  `json:"source"`
-	SourceNumber      string  `json:"sourceNumber"`
-	SourceUUID        string  `json:"sourceUuid"`
-	SourceName        string  `json:"sourceName"`
-	SourceDevice      int     `json:"sourceDevice"`
-	Timestamp         int64   `json:"timestamp"`
-	ServerReceivedAt  int64   `json:"serverReceivedTimestamp"`
-	ServerDeliveredAt int64   `json:"serverDeliveredTimestamp"`
-	DataMessage       *DataMessage     `json:"dataMessage"`
-	SyncMessage       *SyncMessage     `json:"syncMessage"`
-	TypingMessage     *TypingMessage   `json:"typingMessage"`
-	ReceiptMessage    *ReceiptMessage  `json:"receiptMessage"`
-	CallMessage       *CallMessage     `json:"callMessage"`
+	Source            string          `json:"source"`
+	SourceNumber      string          `json:"sourceNumber"`
+	SourceUUID        string          `json:"sourceUuid"`
+	SourceName        string          `json:"sourceName"`
+	SourceDevice      int             `json:"sourceDevice"`
+	Timestamp         int64           `json:"timestamp"`
+	ServerReceivedAt  int64           `json:"serverReceivedTimestamp"`
+	ServerDeliveredAt int64           `json:"serverDeliveredTimestamp"`
+	DataMessage       *DataMessage    `json:"dataMessage"`
+	SyncMessage       *SyncMessage    `json:"syncMessage"`
+	TypingMessage     *TypingMessage  `json:"typingMessage"`
+	ReceiptMessage    *ReceiptMessage `json:"receiptMessage"`
+	CallMessage       *CallMessage    `json:"callMessage"`
 }
 
 // DataMessage contains a regular text message.
 type DataMessage struct {
-	Timestamp        int64        `json:"timestamp"`
-	Message          string       `json:"message"`
-	ExpiresInSeconds int          `json:"expiresInSeconds"`
-	ViewOnce         bool         `json:"viewOnce"`
-	GroupInfo        *GroupInfo   `json:"groupInfo"`
-	Quote            *QuoteInfo   `json:"quote"`
-	Attachments      []Attachment `json:"attachments"`
+	Timestamp        int64         `json:"timestamp"`
+	Message          string        `json:"message"`
+	ExpiresInSeconds int           `json:"expiresInSeconds"`
+	ViewOnce         bool          `json:"viewOnce"`
+	GroupInfo        *GroupInfo    `json:"groupInfo"`
+	Quote            *QuoteInfo    `json:"quote"`
+	Attachments      []Attachment  `json:"attachments"`
 	Mentions         []MentionInfo `json:"mentions"`
-	Reaction         *Reaction    `json:"reaction"`
-	Sticker          *Sticker     `json:"sticker"`
+	Reaction         *Reaction     `json:"reaction"`
+	Sticker          *Sticker      `json:"sticker"`
 }
 
 // SyncMessage contains a sync message (sent from another device).
 type SyncMessage struct {
-	SentMessage *SentMessage `json:"sentMessage"`
+	SentMessage  *SentMessage  `json:"sentMessage"`
 	ReadMessages []ReadMessage `json:"readMessages"`
 }
 
 // SentMessage is a message sent from another device.
 type SentMessage struct {
-	Destination     string       `json:"destination"`
-	DestinationUUID string       `json:"destinationUuid"`
-	Timestamp       int64        `json:"timestamp"`
-	Message         string       `json:"message"`
-	ExpiresInSeconds int         `json:"expiresInSeconds"`
-	GroupInfo       *GroupInfo   `json:"groupInfo"`
-	Attachments     []Attachment `json:"attachments"`
+	Destination      string       `json:"destination"`
+	DestinationUUID  string       `json:"destinationUuid"`
+	Timestamp        int64        `json:"timestamp"`
+	Message          string       `json:"message"`
+	ExpiresInSeconds int          `json:"expiresInSeconds"`
+	GroupInfo        *GroupInfo   `json:"groupInfo"`
+	Attachments      []Attachment `json:"attachments"`
 }
 
 // ReadMessage indicates a message was read.
@@ -96,10 +96,10 @@ type ReceiptMessage struct {
 
 // CallMessage represents a call event.
 type CallMessage struct {
-	OfferMessage   *OfferMessage   `json:"offerMessage"`
-	AnswerMessage  *AnswerMessage  `json:"answerMessage"`
-	HangupMessage  *HangupMessage  `json:"hangupMessage"`
-	BusyMessage    *BusyMessage    `json:"busyMessage"`
+	OfferMessage  *OfferMessage  `json:"offerMessage"`
+	AnswerMessage *AnswerMessage `json:"answerMessage"`
+	HangupMessage *HangupMessage `json:"hangupMessage"`
+	BusyMessage   *BusyMessage   `json:"busyMessage"`
 }
 
 type OfferMessage struct {
@@ -127,23 +127,23 @@ type GroupInfo struct {
 
 // QuoteInfo contains a quoted message.
 type QuoteInfo struct {
-	ID         int64        `json:"id"`
-	Author     string       `json:"author"`
-	AuthorUUID string       `json:"authorUuid"`
-	Text       string       `json:"text"`
+	ID          int64        `json:"id"`
+	Author      string       `json:"author"`
+	AuthorUUID  string       `json:"authorUuid"`
+	Text        string       `json:"text"`
 	Attachments []Attachment `json:"attachments"`
 }
 
 // Attachment represents a file attachment.
 type Attachment struct {
-	ContentType string `json:"contentType"`
-	Filename    string `json:"filename"`
-	ID          string `json:"id"`
-	Size        int64  `json:"size"`
-	Width       int    `json:"width"`
-	Height      int    `json:"height"`
-	Caption     string `json:"caption"`
-	UploadTimestamp int64 `json:"uploadTimestamp"`
+	ContentType     string `json:"contentType"`
+	Filename        string `json:"filename"`
+	ID              string `json:"id"`
+	Size            int64  `json:"size"`
+	Width           int    `json:"width"`
+	Height          int    `json:"height"`
+	Caption         string `json:"caption"`
+	UploadTimestamp int64  `json:"uploadTimestamp"`
 }
 
 // MentionInfo represents a user mention in a message.
