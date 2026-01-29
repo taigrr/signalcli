@@ -180,7 +180,7 @@ type EnvelopeHandler func(Envelope) error
 // Listen connects to SSE and calls the handler for each envelope.
 // It automatically reconnects on connection errors.
 func (l *Listener) Listen(ctx context.Context, handler EnvelopeHandler) error {
-	url := fmt.Sprintf("%s/api/v1/receive/%s", l.client.baseURL, l.client.account)
+	url := fmt.Sprintf("%s/api/v1/events?account=%s", l.client.baseURL, l.client.account)
 
 	for {
 		select {
