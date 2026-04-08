@@ -142,4 +142,4 @@ go test ./...
 
 ## License
 
-MIT
+0BSD
