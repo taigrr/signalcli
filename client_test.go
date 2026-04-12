@@ -223,3 +223,247 @@ func TestWithHTTPClient(t *testing.T) {
 		t.Error("custom HTTP client not set")
 	}
 }
+
+func TestSendWithAttachments(t *testing.T) {
+	var receivedParams map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req RPCRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		receivedParams = req.Params.(map[string]interface{})
+
+		resp := RPCResponse{
+			JSONRPC: "2.0",
+			Result:  json.RawMessage(`{"timestamp":1234567890,"results":[]}`),
+			ID:      req.ID,
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "+1234567890")
+	ctx := context.Background()
+
+	_, err := c.Send(ctx, SendParams{
+		Recipient:   "recipient-uuid",
+		Message:     "Check these out",
+		Attachments: []string{"/tmp/photo1.jpg", "/tmp/photo2.jpg"},
+	})
+
+	if err != nil {
+		t.Fatalf("Send failed: %v", err)
+	}
+
+	attachments, ok := receivedParams["attachment"].([]interface{})
+	if !ok {
+		t.Fatal("expected attachment to be an array")
+	}
+	if len(attachments) != 2 {
+		t.Errorf("expected 2 attachments, got %d", len(attachments))
+	}
+}
+
+func TestListGroups(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req RPCRequest
+		json.NewDecoder(r.Body).Decode(&req)
+
+		if req.Method != "listGroups" {
+			t.Errorf("expected method 'listGroups', got %q", req.Method)
+		}
+
+		resp := RPCResponse{
+			JSONRPC: "2.0",
+			Result:  json.RawMessage(`[{"id":"group1","name":"Test Group","isMember":true,"members":["uuid1","uuid2"]}]`),
+			ID:      req.ID,
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "+1234567890")
+	groups, err := c.ListGroups(context.Background())
+	if err != nil {
+		t.Fatalf("ListGroups failed: %v", err)
+	}
+
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	if groups[0].Name != "Test Group" {
+		t.Errorf("expected group name 'Test Group', got %q", groups[0].Name)
+	}
+	if len(groups[0].Members) != 2 {
+		t.Errorf("expected 2 members, got %d", len(groups[0].Members))
+	}
+}
+
+func TestListContacts(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req RPCRequest
+		json.NewDecoder(r.Body).Decode(&req)
+
+		if req.Method != "listContacts" {
+			t.Errorf("expected method 'listContacts', got %q", req.Method)
+		}
+
+		resp := RPCResponse{
+			JSONRPC: "2.0",
+			Result:  json.RawMessage(`[{"name":"Alice","uuid":"alice-uuid","number":"+15551234567"}]`),
+			ID:      req.ID,
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "+1234567890")
+	contacts, err := c.ListContacts(context.Background())
+	if err != nil {
+		t.Fatalf("ListContacts failed: %v", err)
+	}
+
+	if len(contacts) != 1 {
+		t.Fatalf("expected 1 contact, got %d", len(contacts))
+	}
+	if contacts[0].Name != "Alice" {
+		t.Errorf("expected contact name 'Alice', got %q", contacts[0].Name)
+	}
+}
+
+func TestUpdateProfile(t *testing.T) {
+	var receivedParams map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req RPCRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		receivedParams = req.Params.(map[string]interface{})
+
+		if req.Method != "updateProfile" {
+			t.Errorf("expected method 'updateProfile', got %q", req.Method)
+		}
+
+		resp := RPCResponse{
+			JSONRPC: "2.0",
+			Result:  json.RawMessage(`{}`),
+			ID:      req.ID,
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "+1234567890")
+	err := c.UpdateProfile(context.Background(), UpdateProfileParams{
+		Name:  "Test User",
+		About: "Hello world",
+	})
+
+	if err != nil {
+		t.Fatalf("UpdateProfile failed: %v", err)
+	}
+
+	if receivedParams["givenName"] != "Test User" {
+		t.Errorf("expected givenName 'Test User', got %v", receivedParams["givenName"])
+	}
+	if receivedParams["about"] != "Hello world" {
+		t.Errorf("expected about 'Hello world', got %v", receivedParams["about"])
+	}
+}
+
+func TestSetExpiration(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req RPCRequest
+		json.NewDecoder(r.Body).Decode(&req)
+
+		if req.Method != "setExpirationTimer" {
+			t.Errorf("expected method 'setExpirationTimer', got %q", req.Method)
+		}
+
+		resp := RPCResponse{
+			JSONRPC: "2.0",
+			Result:  json.RawMessage(`{}`),
+			ID:      req.ID,
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "+1234567890")
+	err := c.SetExpiration(context.Background(), "recipient-uuid", 3600)
+
+	if err != nil {
+		t.Fatalf("SetExpiration failed: %v", err)
+	}
+}
+
+func TestBlockUnblock(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req RPCRequest
+		json.NewDecoder(r.Body).Decode(&req)
+
+		resp := RPCResponse{
+			JSONRPC: "2.0",
+			Result:  json.RawMessage(`{}`),
+			ID:      req.ID,
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "+1234567890")
+	ctx := context.Background()
+
+	if err := c.Block(ctx, BlockParams{Recipient: "bad-uuid"}); err != nil {
+		t.Fatalf("Block failed: %v", err)
+	}
+
+	if err := c.Unblock(ctx, BlockParams{Recipient: "bad-uuid"}); err != nil {
+		t.Fatalf("Unblock failed: %v", err)
+	}
+}
+
+func TestGetProfile(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req RPCRequest
+		json.NewDecoder(r.Body).Decode(&req)
+
+		resp := RPCResponse{
+			JSONRPC: "2.0",
+			Result:  json.RawMessage(`[{"address":{"uuid":"test-uuid"},"name":"Test User","isBlocked":false}]`),
+			ID:      req.ID,
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "+1234567890")
+	profile, err := c.GetProfile(context.Background(), "test-uuid")
+
+	if err != nil {
+		t.Fatalf("GetProfile failed: %v", err)
+	}
+	if profile.Name != "Test User" {
+		t.Errorf("expected name 'Test User', got %q", profile.Name)
+	}
+}
+
+func TestGetProfileNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req RPCRequest
+		json.NewDecoder(r.Body).Decode(&req)
+
+		resp := RPCResponse{
+			JSONRPC: "2.0",
+			Result:  json.RawMessage(`[]`),
+			ID:      req.ID,
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "+1234567890")
+	_, err := c.GetProfile(context.Background(), "nonexistent-uuid")
+
+	if err == nil {
+		t.Fatal("expected error for empty profile list")
+	}
+}

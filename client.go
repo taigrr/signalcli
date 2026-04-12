@@ -134,13 +134,13 @@ func (c *Client) Call(ctx context.Context, method string, params interface{}) (j
 
 // SendParams contains parameters for sending a message.
 type SendParams struct {
-	Recipient  string    `json:"recipient,omitempty"`  // Single recipient (UUID or phone)
-	Recipients []string  `json:"recipients,omitempty"` // Multiple recipients
-	GroupID    string    `json:"groupId,omitempty"`    // Group ID for group messages
-	Message    string    `json:"message"`
-	Attachment string    `json:"attachment,omitempty"` // Path to attachment file
-	Quote      *Quote    `json:"quote,omitempty"`      // Quote/reply
-	Mentions   []Mention `json:"mentions,omitempty"`   // @mentions
+	Recipient   string    `json:"recipient,omitempty"`  // Single recipient (UUID or phone)
+	Recipients  []string  `json:"recipients,omitempty"` // Multiple recipients
+	GroupID     string    `json:"groupId,omitempty"`    // Group ID for group messages
+	Message     string    `json:"message"`
+	Attachments []string  `json:"attachments,omitempty"` // Paths to attachment files
+	Quote       *Quote    `json:"quote,omitempty"`       // Quote/reply
+	Mentions    []Mention `json:"mentions,omitempty"`    // @mentions
 }
 
 // Quote represents a quoted/replied message.
@@ -195,8 +195,8 @@ func (c *Client) Send(ctx context.Context, params SendParams) (*SendResult, erro
 	if params.GroupID != "" {
 		p["groupId"] = params.GroupID
 	}
-	if params.Attachment != "" {
-		p["attachment"] = params.Attachment
+	if len(params.Attachments) > 0 {
+		p["attachment"] = params.Attachments
 	}
 	if params.Quote != nil {
 		p["quoteTimestamp"] = params.Quote.Timestamp
@@ -326,4 +326,149 @@ type Profile struct {
 	Name      string  `json:"name"`
 	IsBlocked bool    `json:"isBlocked"`
 	ExpiresIn int     `json:"messageExpirationTime"`
+}
+
+// Group represents a Signal group.
+type Group struct {
+	ID                     string   `json:"id"`
+	Name                   string   `json:"name"`
+	Description            string   `json:"description"`
+	IsMember               bool     `json:"isMember"`
+	IsBlocked              bool     `json:"isBlocked"`
+	Members                []string `json:"members"`
+	PendingMembers         []string `json:"pendingMembers"`
+	RequestingMembers      []string `json:"requestingMembers"`
+	Admins                 []string `json:"admins"`
+	PermissionAddMember    string   `json:"permissionAddMember"`
+	PermissionEditDetails  string   `json:"permissionEditDetails"`
+	PermissionSendMessages string   `json:"permissionSendMessage"`
+	GroupInviteLink        string   `json:"groupInviteLink"`
+}
+
+// Contact represents a Signal contact.
+type Contact struct {
+	Number    string  `json:"number"`
+	UUID      string  `json:"uuid"`
+	Name      string  `json:"name"`
+	IsBlocked bool    `json:"isBlocked"`
+	Color     string  `json:"color"`
+	Address   Address `json:"address"`
+}
+
+// ListGroups retrieves all groups for the configured account.
+func (c *Client) ListGroups(ctx context.Context) ([]Group, error) {
+	p := map[string]interface{}{
+		"account": c.account,
+	}
+
+	result, err := c.Call(ctx, "listGroups", p)
+	if err != nil {
+		return nil, err
+	}
+
+	var groups []Group
+	if err := json.Unmarshal(result, &groups); err != nil {
+		return nil, fmt.Errorf("unmarshal groups: %w", err)
+	}
+
+	return groups, nil
+}
+
+// ListContacts retrieves all contacts for the configured account.
+func (c *Client) ListContacts(ctx context.Context) ([]Contact, error) {
+	p := map[string]interface{}{
+		"account": c.account,
+	}
+
+	result, err := c.Call(ctx, "listContacts", p)
+	if err != nil {
+		return nil, err
+	}
+
+	var contacts []Contact
+	if err := json.Unmarshal(result, &contacts); err != nil {
+		return nil, fmt.Errorf("unmarshal contacts: %w", err)
+	}
+
+	return contacts, nil
+}
+
+// UpdateProfileParams contains parameters for updating the user profile.
+type UpdateProfileParams struct {
+	Name       string `json:"name,omitempty"`
+	About      string `json:"about,omitempty"`
+	AboutEmoji string `json:"aboutEmoji,omitempty"`
+	Avatar     string `json:"avatar,omitempty"` // Path to avatar file
+}
+
+// UpdateProfile updates the profile for the configured account.
+func (c *Client) UpdateProfile(ctx context.Context, params UpdateProfileParams) error {
+	p := map[string]interface{}{
+		"account": c.account,
+	}
+	if params.Name != "" {
+		p["givenName"] = params.Name
+	}
+	if params.About != "" {
+		p["about"] = params.About
+	}
+	if params.AboutEmoji != "" {
+		p["aboutEmoji"] = params.AboutEmoji
+	}
+	if params.Avatar != "" {
+		p["avatar"] = params.Avatar
+	}
+
+	_, err := c.Call(ctx, "updateProfile", p)
+	return err
+}
+
+// SetExpiration sets the disappearing message timer for a conversation.
+func (c *Client) SetExpiration(ctx context.Context, recipient string, seconds int) error {
+	p := map[string]interface{}{
+		"account":    c.account,
+		"recipient":  recipient,
+		"expiration": seconds,
+	}
+
+	_, err := c.Call(ctx, "setExpirationTimer", p)
+	return err
+}
+
+// BlockParams contains parameters for blocking/unblocking.
+type BlockParams struct {
+	Recipient string `json:"recipient,omitempty"`
+	GroupID   string `json:"groupId,omitempty"`
+}
+
+// Block blocks a recipient or group.
+func (c *Client) Block(ctx context.Context, params BlockParams) error {
+	p := map[string]interface{}{
+		"account": c.account,
+	}
+	if params.Recipient != "" {
+		p["recipient"] = params.Recipient
+	}
+	if params.GroupID != "" {
+		p["groupId"] = params.GroupID
+	}
+
+	_, err := c.Call(ctx, "block", p)
+	return err
+}
+
+// Unblock unblocks a recipient or group.
+func (c *Client) Unblock(ctx context.Context, params BlockParams) error {
+	p := map[string]interface{}{
+		"account": c.account,
+	}
+	if params.Recipient != "" {
+		p["recipient"] = params.Recipient
+	}
+	if params.GroupID != "" {
+		p["groupId"] = params.GroupID
+	}
+
+	_, err := c.Call(ctx, "unblock", p)
+	return err
 }
