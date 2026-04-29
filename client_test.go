@@ -467,3 +467,85 @@ func TestGetProfileNotFound(t *testing.T) {
 		t.Fatal("expected error for empty profile list")
 	}
 }
+
+func TestRPCErrorError(t *testing.T) {
+	err := (&RPCError{Code: 42, Message: "boom"}).Error()
+	if err != "signal-cli error 42: boom" {
+		t.Fatalf("unexpected error string: %q", err)
+	}
+}
+
+func TestCallInvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"jsonrpc":`))
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "+1234567890")
+	_, err := c.Call(context.Background(), "send", map[string]string{"message": "hi"})
+	if err == nil {
+		t.Fatal("expected unmarshal error")
+	}
+}
+
+func TestSendWrappedResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req RPCRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+
+		resp := RPCResponse{
+			JSONRPC: "2.0",
+			Result:  json.RawMessage(`{"response":{"timestamp":1234567890,"results":[{"recipientAddress":{"uuid":"wrapped-uuid"},"type":"SUCCESS"}]}}`),
+			ID:      req.ID,
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "+1234567890")
+	result, err := c.Send(context.Background(), SendParams{
+		Recipient: "recipient-uuid",
+		Message:   "wrapped",
+	})
+	if err != nil {
+		t.Fatalf("Send failed: %v", err)
+	}
+	if result.Timestamp != 1234567890 {
+		t.Fatalf("expected wrapped timestamp, got %d", result.Timestamp)
+	}
+	if len(result.Results) != 1 || result.Results[0].RecipientAddress.UUID != "wrapped-uuid" {
+		t.Fatalf("unexpected wrapped result: %+v", result.Results)
+	}
+}
+
+func TestMarkRead(t *testing.T) {
+	var req RPCRequest
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		resp := RPCResponse{JSONRPC: "2.0", Result: json.RawMessage(`{}`), ID: req.ID}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "+1234567890")
+	err := c.MarkRead(context.Background(), "recipient-uuid", []int64{111, 222})
+	if err != nil {
+		t.Fatalf("MarkRead failed: %v", err)
+	}
+	if req.Method != "sendReceipt" {
+		t.Fatalf("expected method sendReceipt, got %q", req.Method)
+	}
+	params, ok := req.Params.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected params map, got %T", req.Params)
+	}
+	if params["recipient"] != "recipient-uuid" {
+		t.Fatalf("unexpected recipient: %v", params["recipient"])
+	}
+	stamps, ok := params["timestamps"].([]interface{})
+	if !ok || len(stamps) != 2 {
+		t.Fatalf("unexpected timestamps: %#v", params["timestamps"])
+	}
+}
