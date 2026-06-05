@@ -4,7 +4,10 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestNewDaemon(t *testing.T) {
@@ -41,6 +44,12 @@ func TestNewDaemonCustomHostPort(t *testing.T) {
 
 func TestDaemonIsReachable(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("expected POST request, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/rpc" {
+			t.Fatalf("expected /api/v1/rpc path, got %s", r.URL.Path)
+		}
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 	defer server.Close()
@@ -131,5 +140,95 @@ func TestDaemonStartDetectsExternal(t *testing.T) {
 
 	if !d.IsRunning() {
 		t.Error("should be marked as running after detecting external daemon")
+	}
+}
+
+func TestDaemonStartReturnsStartError(t *testing.T) {
+	d := NewDaemon(DaemonConfig{
+		CLIPath:  "/definitely/missing/signal-cli",
+		HTTPHost: "127.0.0.1",
+		HTTPPort: 59999,
+	})
+
+	err := d.Start(context.Background())
+	if err == nil {
+		t.Fatal("expected start to fail for missing binary")
+	}
+	if !strings.Contains(err.Error(), "failed to start signal-cli") {
+		t.Fatalf("expected wrapped start error, got %v", err)
+	}
+	if d.IsRunning() {
+		t.Error("daemon should not be marked running after start failure")
+	}
+}
+
+func TestDaemonWaitReadyHonorsContextCancellation(t *testing.T) {
+	d := NewDaemon(DaemonConfig{CLIPath: "/usr/bin/signal-cli"})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if err := d.waitReady(ctx); err != context.Canceled {
+		t.Fatalf("expected context cancellation error, got %v", err)
+	}
+}
+
+func TestDaemonMonitorCapturesExitError(t *testing.T) {
+	cmd := exec.Command("sh", "-c", "exit 7")
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start helper command: %v", err)
+	}
+
+	d := NewDaemon(DaemonConfig{CLIPath: "/usr/bin/signal-cli"})
+	d.cmd = cmd
+	d.running = true
+
+	d.monitor()
+
+	if d.IsRunning() {
+		t.Error("daemon should not be running after monitor observes exit")
+	}
+	if d.Error() == nil {
+		t.Fatal("expected monitor to capture process exit error")
+	}
+}
+
+func TestDaemonMonitorHandlesNilCommand(t *testing.T) {
+	d := NewDaemon(DaemonConfig{CLIPath: "/usr/bin/signal-cli"})
+	d.running = true
+
+	d.monitor()
+
+	if !d.IsRunning() {
+		t.Error("monitor should leave running state unchanged when command is nil")
+	}
+}
+
+func TestDaemonStopInterruptsRunningProcess(t *testing.T) {
+	cmd := exec.Command("sh", "-c", "trap 'exit 0' INT; while :; do sleep 1; done")
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start helper command: %v", err)
+	}
+
+	d := NewDaemon(DaemonConfig{CLIPath: "/usr/bin/signal-cli"})
+	d.cmd = cmd
+	d.running = true
+
+	if err := d.Stop(); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+	if d.IsRunning() {
+		t.Error("daemon should be marked stopped immediately")
+	}
+
+	waitDone := make(chan error, 1)
+	go func() {
+		waitDone <- d.Wait()
+	}()
+
+	select {
+	case <-waitDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for helper process to stop")
 	}
 }
