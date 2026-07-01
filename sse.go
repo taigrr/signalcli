@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -180,7 +181,7 @@ type EnvelopeHandler func(Envelope) error
 // Listen connects to SSE and calls the handler for each envelope.
 // It automatically reconnects on connection errors.
 func (l *Listener) Listen(ctx context.Context, handler EnvelopeHandler) error {
-	url := fmt.Sprintf("%s/api/v1/events?account=%s", l.client.baseURL, l.client.account)
+	eventURL := fmt.Sprintf("%s/api/v1/events?account=%s", l.client.baseURL, url.QueryEscape(l.client.account))
 
 	for {
 		select {
@@ -189,7 +190,7 @@ func (l *Listener) Listen(ctx context.Context, handler EnvelopeHandler) error {
 		default:
 		}
 
-		if err := l.connect(ctx, url, handler); err != nil {
+		if err := l.connect(ctx, eventURL, handler); err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
