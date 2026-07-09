@@ -126,7 +126,7 @@ func (d *Daemon) Start(ctx context.Context) error {
 
 	// Wait for daemon to be ready
 	if err := d.waitReady(ctx); err != nil {
-		d.Stop()
+		d.stopLocked()
 		return fmt.Errorf("signal-cli failed to become ready: %w", err)
 	}
 
@@ -141,6 +141,10 @@ func (d *Daemon) Stop() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	return d.stopLocked()
+}
+
+func (d *Daemon) stopLocked() error {
 	if !d.running || d.cmd == nil || d.cmd.Process == nil {
 		d.running = false
 		return nil

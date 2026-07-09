@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -159,6 +161,43 @@ func TestDaemonStartReturnsStartError(t *testing.T) {
 	}
 	if d.IsRunning() {
 		t.Error("daemon should not be marked running after start failure")
+	}
+}
+
+func TestDaemonStartCleansUpWhenReadinessFails(t *testing.T) {
+	cliPath := filepath.Join(t.TempDir(), "signal-cli")
+	if err := os.WriteFile(cliPath, []byte("#!/bin/sh\nsleep 10\n"), 0o700); err != nil {
+		t.Fatalf("failed to write helper command: %v", err)
+	}
+
+	d := NewDaemon(DaemonConfig{
+		CLIPath:  cliPath,
+		HTTPHost: "127.0.0.1",
+		HTTPPort: 59999,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- d.Start(ctx)
+	}()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected readiness failure")
+		}
+		if !strings.Contains(err.Error(), "signal-cli failed to become ready") {
+			t.Fatalf("expected wrapped readiness error, got %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Start did not return after readiness failure")
+	}
+
+	if d.IsRunning() {
+		t.Error("daemon should not be marked running after readiness failure")
 	}
 }
 
