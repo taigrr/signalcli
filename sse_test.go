@@ -80,9 +80,11 @@ func TestListenerEscapesAccountQuery(t *testing.T) {
 	const account = "+1234567890"
 	sseData := `{"account":"+1234567890","envelope":{"source":"+9876543210","sourceUuid":"sender-uuid","timestamp":1700000000000}}`
 
+	gotAccount := make(chan string, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.URL.Query().Get("account"); got != account {
-			t.Errorf("expected account query %q, got %q", account, got)
+		select {
+		case gotAccount <- r.URL.Query().Get("account"):
+		default:
 		}
 
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -90,7 +92,6 @@ func TestListenerEscapesAccountQuery(t *testing.T) {
 
 		flusher, ok := w.(http.Flusher)
 		if !ok {
-			t.Fatal("expected http.Flusher")
 			return
 		}
 
@@ -107,14 +108,32 @@ func TestListenerEscapesAccountQuery(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
+	received := make(chan struct{}, 1)
 	go func() {
 		_ = listener.Listen(ctx, func(env Envelope) error {
+			select {
+			case received <- struct{}{}:
+			default:
+			}
 			cancel()
 			return nil
 		})
 	}()
 
-	<-ctx.Done()
+	select {
+	case got := <-gotAccount:
+		if got != account {
+			t.Errorf("expected account query %q, got %q", account, got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("listener never connected to the server")
+	}
+
+	select {
+	case <-received:
+	case <-time.After(2 * time.Second):
+		t.Fatal("handler never received the envelope")
+	}
 }
 
 func TestListenerReceivesDirectEnvelope(t *testing.T) {

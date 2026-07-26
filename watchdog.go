@@ -90,9 +90,7 @@ func (d *Daemon) Watch(ctx context.Context, cfg WatchConfig) error {
 		heapMB := int(cfg.MemoryLimit * 3 / 4 / (1024 * 1024))
 		// Floor to a JVM-viable minimum so tiny limits don't truncate to 0
 		// (which buildEnv treats as "no cap", leaving the JVM uncapped).
-		if heapMB < 32 {
-			heapMB = 32
-		}
+		heapMB = max(heapMB, 32)
 		d.config.JavaMaxHeapMB = heapMB
 	}
 	d.mu.Unlock()
