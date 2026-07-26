@@ -76,6 +76,47 @@ func TestListenerReceivesDataMessage(t *testing.T) {
 	}
 }
 
+func TestListenerEscapesAccountQuery(t *testing.T) {
+	const account = "+1234567890"
+	sseData := `{"account":"+1234567890","envelope":{"source":"+9876543210","sourceUuid":"sender-uuid","timestamp":1700000000000}}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("account"); got != account {
+			t.Errorf("expected account query %q, got %q", account, got)
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected http.Flusher")
+			return
+		}
+
+		fmt.Fprintf(w, "data:%s\n\n", sseData)
+		flusher.Flush()
+
+		time.Sleep(200 * time.Millisecond)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, account)
+	listener := NewListener(client)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	go func() {
+		_ = listener.Listen(ctx, func(env Envelope) error {
+			cancel()
+			return nil
+		})
+	}()
+
+	<-ctx.Done()
+}
+
 func TestListenerReceivesDirectEnvelope(t *testing.T) {
 	sseData := `{"source":"+9876543210","sourceUuid":"direct-uuid","timestamp":1700000000000,"dataMessage":{"timestamp":1700000000000,"message":"Direct envelope"}}`
 
