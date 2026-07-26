@@ -246,9 +246,8 @@ func (l *Listener) readEvents(ctx context.Context, r io.Reader, handler Envelope
 		if line == "" {
 			// Empty line = end of event
 			if event.Data != "" {
-				if err := l.handleEvent(event, handler); err != nil {
-					// Log but continue
-				}
+				// Errors are intentionally ignored to keep the stream alive.
+				_ = l.handleEvent(event, handler)
 			}
 			event = sseEvent{}
 			continue
@@ -259,16 +258,15 @@ func (l *Listener) readEvents(ctx context.Context, r io.Reader, handler Envelope
 			continue
 		}
 
-		if strings.HasPrefix(line, "event:") {
-			event.Type = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
-		} else if strings.HasPrefix(line, "data:") {
-			data := strings.TrimPrefix(line, "data:")
+		if data, ok := strings.CutPrefix(line, "event:"); ok {
+			event.Type = strings.TrimSpace(data)
+		} else if data, ok := strings.CutPrefix(line, "data:"); ok {
 			if event.Data != "" {
 				event.Data += "\n"
 			}
 			event.Data += data
-		} else if strings.HasPrefix(line, "id:") {
-			event.ID = strings.TrimSpace(strings.TrimPrefix(line, "id:"))
+		} else if data, ok := strings.CutPrefix(line, "id:"); ok {
+			event.ID = strings.TrimSpace(data)
 		}
 	}
 

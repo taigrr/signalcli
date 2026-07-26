@@ -64,10 +64,10 @@ func (c *Client) BaseURL() string {
 
 // RPCRequest represents a JSON-RPC request.
 type RPCRequest struct {
-	JSONRPC string      `json:"jsonrpc"`
-	Method  string      `json:"method"`
-	Params  interface{} `json:"params,omitempty"`
-	ID      string      `json:"id"`
+	JSONRPC string `json:"jsonrpc"`
+	Method  string `json:"method"`
+	Params  any    `json:"params,omitempty"`
+	ID      string `json:"id"`
 }
 
 // RPCResponse represents a JSON-RPC response.
@@ -90,7 +90,7 @@ func (e *RPCError) Error() string {
 }
 
 // Call makes a JSON-RPC call to signal-cli.
-func (c *Client) Call(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
+func (c *Client) Call(ctx context.Context, method string, params any) (json.RawMessage, error) {
 	req := RPCRequest{
 		JSONRPC: "2.0",
 		Method:  method,
@@ -181,7 +181,7 @@ type Address struct {
 // Send sends a message.
 func (c *Client) Send(ctx context.Context, params SendParams) (*SendResult, error) {
 	// Build the params map
-	p := map[string]interface{}{
+	p := map[string]any{
 		"account": c.account,
 		"message": params.Message,
 	}
@@ -242,7 +242,7 @@ type ReactParams struct {
 
 // React sends a reaction to a message.
 func (c *Client) React(ctx context.Context, params ReactParams) error {
-	p := map[string]interface{}{
+	p := map[string]any{
 		"account":             c.account,
 		"recipient":           params.Recipient,
 		"emoji":               params.Emoji,
@@ -269,7 +269,7 @@ type TypingParams struct {
 
 // SendTyping sends a typing indicator.
 func (c *Client) SendTyping(ctx context.Context, params TypingParams) error {
-	p := map[string]interface{}{
+	p := map[string]any{
 		"account":   c.account,
 		"recipient": params.Recipient,
 	}
@@ -286,7 +286,7 @@ func (c *Client) SendTyping(ctx context.Context, params TypingParams) error {
 
 // MarkRead marks messages as read.
 func (c *Client) MarkRead(ctx context.Context, recipient string, timestamps []int64) error {
-	p := map[string]interface{}{
+	p := map[string]any{
 		"account":    c.account,
 		"recipient":  recipient,
 		"timestamps": timestamps,
@@ -298,7 +298,7 @@ func (c *Client) MarkRead(ctx context.Context, recipient string, timestamps []in
 
 // GetProfile retrieves a user's profile.
 func (c *Client) GetProfile(ctx context.Context, recipient string) (*Profile, error) {
-	p := map[string]interface{}{
+	p := map[string]any{
 		"account":   c.account,
 		"recipient": recipient,
 	}
@@ -357,7 +357,7 @@ type Contact struct {
 
 // ListGroups retrieves all groups for the configured account.
 func (c *Client) ListGroups(ctx context.Context) ([]Group, error) {
-	p := map[string]interface{}{
+	p := map[string]any{
 		"account": c.account,
 	}
 
@@ -376,7 +376,7 @@ func (c *Client) ListGroups(ctx context.Context) ([]Group, error) {
 
 // ListContacts retrieves all contacts for the configured account.
 func (c *Client) ListContacts(ctx context.Context) ([]Contact, error) {
-	p := map[string]interface{}{
+	p := map[string]any{
 		"account": c.account,
 	}
 
@@ -403,7 +403,7 @@ type UpdateProfileParams struct {
 
 // UpdateProfile updates the profile for the configured account.
 func (c *Client) UpdateProfile(ctx context.Context, params UpdateProfileParams) error {
-	p := map[string]interface{}{
+	p := map[string]any{
 		"account": c.account,
 	}
 	if params.Name != "" {
@@ -425,7 +425,7 @@ func (c *Client) UpdateProfile(ctx context.Context, params UpdateProfileParams) 
 
 // SetExpiration sets the disappearing message timer for a conversation.
 func (c *Client) SetExpiration(ctx context.Context, recipient string, seconds int) error {
-	p := map[string]interface{}{
+	p := map[string]any{
 		"account":    c.account,
 		"recipient":  recipient,
 		"expiration": seconds,
@@ -443,7 +443,7 @@ type BlockParams struct {
 
 // Block blocks a recipient or group.
 func (c *Client) Block(ctx context.Context, params BlockParams) error {
-	p := map[string]interface{}{
+	p := map[string]any{
 		"account": c.account,
 	}
 	if params.Recipient != "" {
@@ -459,7 +459,7 @@ func (c *Client) Block(ctx context.Context, params BlockParams) error {
 
 // Unblock unblocks a recipient or group.
 func (c *Client) Unblock(ctx context.Context, params BlockParams) error {
-	p := map[string]interface{}{
+	p := map[string]any{
 		"account": c.account,
 	}
 	if params.Recipient != "" {

@@ -74,12 +74,12 @@ func TestSend(t *testing.T) {
 }
 
 func TestSendWithQuote(t *testing.T) {
-	var receivedParams map[string]interface{}
+	var receivedParams map[string]any
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req RPCRequest
 		json.NewDecoder(r.Body).Decode(&req)
-		receivedParams = req.Params.(map[string]interface{})
+		receivedParams = req.Params.(map[string]any)
 
 		resp := RPCResponse{
 			JSONRPC: "2.0",
@@ -225,12 +225,12 @@ func TestWithHTTPClient(t *testing.T) {
 }
 
 func TestSendWithAttachments(t *testing.T) {
-	var receivedParams map[string]interface{}
+	var receivedParams map[string]any
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req RPCRequest
 		json.NewDecoder(r.Body).Decode(&req)
-		receivedParams = req.Params.(map[string]interface{})
+		receivedParams = req.Params.(map[string]any)
 
 		resp := RPCResponse{
 			JSONRPC: "2.0",
@@ -254,7 +254,7 @@ func TestSendWithAttachments(t *testing.T) {
 		t.Fatalf("Send failed: %v", err)
 	}
 
-	attachments, ok := receivedParams["attachment"].([]interface{})
+	attachments, ok := receivedParams["attachment"].([]any)
 	if !ok {
 		t.Fatal("expected attachment to be an array")
 	}
@@ -331,12 +331,12 @@ func TestListContacts(t *testing.T) {
 }
 
 func TestUpdateProfile(t *testing.T) {
-	var receivedParams map[string]interface{}
+	var receivedParams map[string]any
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req RPCRequest
 		json.NewDecoder(r.Body).Decode(&req)
-		receivedParams = req.Params.(map[string]interface{})
+		receivedParams = req.Params.(map[string]any)
 
 		if req.Method != "updateProfile" {
 			t.Errorf("expected method 'updateProfile', got %q", req.Method)
@@ -537,14 +537,14 @@ func TestMarkRead(t *testing.T) {
 	if req.Method != "sendReceipt" {
 		t.Fatalf("expected method sendReceipt, got %q", req.Method)
 	}
-	params, ok := req.Params.(map[string]interface{})
+	params, ok := req.Params.(map[string]any)
 	if !ok {
 		t.Fatalf("expected params map, got %T", req.Params)
 	}
 	if params["recipient"] != "recipient-uuid" {
 		t.Fatalf("unexpected recipient: %v", params["recipient"])
 	}
-	stamps, ok := params["timestamps"].([]interface{})
+	stamps, ok := params["timestamps"].([]any)
 	if !ok || len(stamps) != 2 {
 		t.Fatalf("unexpected timestamps: %#v", params["timestamps"])
 	}

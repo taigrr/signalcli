@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -94,6 +95,43 @@ func TestDaemonBuildArgs(t *testing.T) {
 
 	if len(expected) > 0 {
 		t.Errorf("missing expected args: %v", expected)
+	}
+}
+
+func TestDaemonBuildEnvNoHeap(t *testing.T) {
+	d := NewDaemon(DaemonConfig{CLIPath: "signal-cli"})
+	if env := d.buildEnv(d.config.JavaMaxHeapMB); env != nil {
+		t.Errorf("expected nil env when heap unset, got %v", env)
+	}
+}
+
+func TestDaemonBuildEnvSetsXmx(t *testing.T) {
+	t.Setenv("JAVA_OPTS", "")
+	d := NewDaemon(DaemonConfig{CLIPath: "signal-cli", JavaMaxHeapMB: 256})
+
+	var got string
+	for _, kv := range d.buildEnv(d.config.JavaMaxHeapMB) {
+		if strings.HasPrefix(kv, "JAVA_OPTS=") {
+			got = kv
+		}
+	}
+	if !strings.Contains(got, "-Xmx256m") {
+		t.Errorf("expected JAVA_OPTS with -Xmx256m, got %q", got)
+	}
+}
+
+func TestDaemonBuildEnvPreservesJavaOpts(t *testing.T) {
+	t.Setenv("JAVA_OPTS", "-Dfoo=bar")
+	d := NewDaemon(DaemonConfig{CLIPath: "signal-cli", JavaMaxHeapMB: 512})
+
+	var got string
+	for _, kv := range d.buildEnv(d.config.JavaMaxHeapMB) {
+		if strings.HasPrefix(kv, "JAVA_OPTS=") {
+			got = kv
+		}
+	}
+	if !strings.Contains(got, "-Dfoo=bar") || !strings.Contains(got, "-Xmx512m") {
+		t.Errorf("expected preserved opts and -Xmx512m, got %q", got)
 	}
 }
 
