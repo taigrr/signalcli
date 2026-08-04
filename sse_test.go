@@ -292,3 +292,43 @@ func TestListenerReconnectsOnError(t *testing.T) {
 		t.Errorf("expected 'reconnect-uuid', got %q", received[0].SourceUUID)
 	}
 }
+
+func TestListenerCancelsDuringReconnectBackoff(t *testing.T) {
+	connected := make(chan struct{}, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case connected <- struct{}{}:
+		default:
+		}
+		http.Error(w, "server error", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "+1234567890")
+	listener := NewListener(client)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- listener.Listen(ctx, func(env Envelope) error {
+			return fmt.Errorf("handler should not be called for failed connections")
+		})
+	}()
+
+	select {
+	case <-connected:
+	case <-time.After(2 * time.Second):
+		t.Fatal("listener never connected to the server")
+	}
+
+	cancel()
+
+	select {
+	case err := <-done:
+		if err != context.Canceled {
+			t.Fatalf("expected context.Canceled, got %v", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("listener did not stop promptly after cancellation")
+	}
+}
