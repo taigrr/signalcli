@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -120,6 +121,10 @@ func (c *Client) Call(ctx context.Context, method string, params any) (json.RawM
 		return nil, fmt.Errorf("read response: %w", err)
 	}
 
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("unexpected http status %s: %s", resp.Status, responsePreview(respBody))
+	}
+
 	var rpcResp RPCResponse
 	if err := json.Unmarshal(respBody, &rpcResp); err != nil {
 		return nil, fmt.Errorf("unmarshal response: %w", err)
@@ -130,6 +135,16 @@ func (c *Client) Call(ctx context.Context, method string, params any) (json.RawM
 	}
 
 	return rpcResp.Result, nil
+}
+
+func responsePreview(body []byte) string {
+	const maxResponsePreview = 512
+
+	preview := strings.TrimSpace(string(body))
+	if len(preview) <= maxResponsePreview {
+		return preview
+	}
+	return preview[:maxResponsePreview] + "..."
 }
 
 // SendParams contains parameters for sending a message.
