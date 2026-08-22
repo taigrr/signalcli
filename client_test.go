@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -486,6 +487,25 @@ func TestCallInvalidJSON(t *testing.T) {
 	_, err := c.Call(context.Background(), "send", map[string]string{"message": "hi"})
 	if err == nil {
 		t.Fatal("expected unmarshal error")
+	}
+}
+
+func TestCallHTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "daemon unavailable", http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "+1234567890")
+	_, err := c.Call(context.Background(), "send", map[string]string{"message": "hi"})
+	if err == nil {
+		t.Fatal("expected http status error")
+	}
+	if !strings.Contains(err.Error(), "unexpected http status 503 Service Unavailable") {
+		t.Fatalf("expected status in error, got %q", err)
+	}
+	if !strings.Contains(err.Error(), "daemon unavailable") {
+		t.Fatalf("expected response body preview in error, got %q", err)
 	}
 }
 
