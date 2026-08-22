@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -121,17 +122,20 @@ func (c *Client) Call(ctx context.Context, method string, params any) (json.RawM
 		return nil, fmt.Errorf("read response: %w", err)
 	}
 
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, fmt.Errorf("unexpected http status %s: %s", resp.Status, responsePreview(respBody))
-	}
-
 	var rpcResp RPCResponse
 	if err := json.Unmarshal(respBody, &rpcResp); err != nil {
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			return nil, fmt.Errorf("unexpected http status %s: %s", resp.Status, responsePreview(respBody))
+		}
 		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
 	if rpcResp.Error != nil {
 		return nil, rpcResp.Error
+	}
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("unexpected http status %s: %s", resp.Status, responsePreview(respBody))
 	}
 
 	return rpcResp.Result, nil
@@ -144,7 +148,16 @@ func responsePreview(body []byte) string {
 	if len(preview) <= maxResponsePreview {
 		return preview
 	}
-	return preview[:maxResponsePreview] + "..."
+	truncated := preview[:maxResponsePreview]
+	// Trim a trailing partial UTF-8 rune split at the byte boundary
+	// (at most utf8.UTFMax-1 bytes), without discarding earlier bytes.
+	for i := 0; i < utf8.UTFMax-1 && len(truncated) > 0; i++ {
+		if r, size := utf8.DecodeLastRuneInString(truncated); r != utf8.RuneError || size > 1 {
+			break
+		}
+		truncated = truncated[:len(truncated)-1]
+	}
+	return truncated + "..."
 }
 
 // SendParams contains parameters for sending a message.
