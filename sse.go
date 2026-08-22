@@ -195,7 +195,11 @@ func (l *Listener) Listen(ctx context.Context, handler EnvelopeHandler) error {
 				return ctx.Err()
 			}
 			// Reconnect after delay
-			time.Sleep(5 * time.Second)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(5 * time.Second):
+			}
 		}
 	}
 }
