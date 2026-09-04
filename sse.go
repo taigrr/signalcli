@@ -220,7 +220,7 @@ func (l *Listener) connect(ctx context.Context, url string, handler EnvelopeHand
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("SSE connect failed: %d %s", resp.StatusCode, string(body))
+		return fmt.Errorf("SSE connect failed: %d %s", resp.StatusCode, responsePreview(body))
 	}
 
 	return l.readEvents(ctx, resp.Body, handler)
