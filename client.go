@@ -50,6 +50,9 @@ func NewClient(baseURL, account string) *Client {
 
 // WithHTTPClient sets a custom HTTP client.
 func (c *Client) WithHTTPClient(client *http.Client) *Client {
+	if client == nil {
+		return c
+	}
 	c.httpClient = client
 	return c
 }
