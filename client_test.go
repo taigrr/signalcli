@@ -225,6 +225,18 @@ func TestWithHTTPClient(t *testing.T) {
 	}
 }
 
+func TestWithHTTPClientIgnoresNil(t *testing.T) {
+	c := NewClient("http://localhost:8080", "+1234567890")
+	defaultClient := c.httpClient
+
+	if got := c.WithHTTPClient(nil); got != c {
+		t.Fatal("WithHTTPClient should return the receiver")
+	}
+	if c.httpClient != defaultClient {
+		t.Fatal("nil HTTP client should leave the configured client unchanged")
+	}
+}
+
 func TestSendWithAttachments(t *testing.T) {
 	var receivedParams map[string]any
 
