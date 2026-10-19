@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -330,5 +331,34 @@ func TestListenerCancelsDuringReconnectBackoff(t *testing.T) {
 		}
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("listener did not stop promptly after cancellation")
+	}
+}
+
+func TestListenerConnectErrorUsesBoundedPreview(t *testing.T) {
+	body := strings.Repeat("x", 600)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, body, http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "+1234567890")
+	listener := NewListener(client)
+
+	err := listener.connect(context.Background(), server.URL+"/api/v1/events", func(env Envelope) error {
+		return nil
+	})
+	if err == nil {
+		t.Fatal("expected connect error")
+	}
+
+	errText := err.Error()
+	if !strings.Contains(errText, "SSE connect failed: 503") {
+		t.Fatalf("expected status in error, got %q", errText)
+	}
+	if !strings.HasSuffix(errText, "...") {
+		t.Fatalf("expected truncated preview suffix, got %q", errText)
+	}
+	if len(errText) > 550 {
+		t.Fatalf("expected bounded error length, got %d", len(errText))
 	}
 }
