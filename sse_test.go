@@ -3,6 +3,7 @@ package signalcli
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -360,5 +361,50 @@ func TestListenerConnectErrorUsesBoundedPreview(t *testing.T) {
 	}
 	if len(errText) > 550 {
 		t.Fatalf("expected bounded error length, got %d", len(errText))
+	}
+}
+
+// Track reads and closure without relying on HTTP transport buffering.
+type trackedErrorBody struct {
+	io.Reader
+	bytesRead int
+	closed    bool
+}
+
+func (body *trackedErrorBody) Read(buffer []byte) (int, error) {
+	count, err := body.Reader.Read(buffer)
+	body.bytesRead += count
+	return count, err
+}
+
+func (body *trackedErrorBody) Close() error {
+	body.closed = true
+	return nil
+}
+
+type errorResponseTransport struct {
+	body io.ReadCloser
+}
+
+func (transport errorResponseTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return &http.Response{StatusCode: http.StatusServiceUnavailable, Body: transport.body, Header: make(http.Header)}, nil
+}
+
+func TestListenerBoundsErrorResponseBody(t *testing.T) {
+	body := &trackedErrorBody{Reader: strings.NewReader(strings.Repeat("unavailable ", 100000))}
+	listener := NewListener(NewClient("http://localhost", "account"))
+	listener.httpClient = &http.Client{Transport: errorResponseTransport{body: body}}
+	err := listener.connect(t.Context(), "http://localhost/api/v1/events", func(Envelope) error {
+		t.Fatal("error responses must not dispatch envelopes")
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "SSE connect failed: 503 unavailable") {
+		t.Fatalf("expected status and body diagnostic, got %v", err)
+	}
+	if body.bytesRead > 4096 {
+		t.Errorf("read %d bytes of error body; want at most 4096", body.bytesRead)
+	}
+	if !body.closed {
+		t.Error("error response body was not closed")
 	}
 }

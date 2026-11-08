@@ -219,7 +219,9 @@ func (l *Listener) connect(ctx context.Context, url string, handler EnvelopeHand
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		// Only read enough for diagnostics; error bodies may be arbitrarily large.
+		const maxErrorBodyBytes = 4096
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
 		return fmt.Errorf("SSE connect failed: %d %s", resp.StatusCode, responsePreview(body))
 	}
 
